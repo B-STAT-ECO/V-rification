@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vérification d'attestation · B-STAT-ECO</title>
+<style>
+:root{--bg:#0d1b3a;--card:#fff;--ink:#12213f;--muted:#5b6784;--blue:#1479d8;--ok:#0f7b4a;--okbg:#e6f6ee;--ko:#a3261f;--kobg:#fdeceb}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 16px}
+header{text-align:center;color:#fff;margin-bottom:22px}
+header img{width:120px;height:auto;display:block;margin:0 auto 8px}
+header h1{font-size:1.25rem;font-weight:600;margin:0}
+main{width:100%;max-width:520px;background:var(--card);border-radius:14px;padding:26px}
+form{display:flex;gap:8px;flex-wrap:wrap}
+input{flex:1 1 220px;padding:12px;border:1.5px solid #c7d0e2;border-radius:8px;font:inherit}
+button,.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:12px 18px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+:focus-visible{outline:3px solid #f5a623;outline-offset:2px}
+.res{margin-top:20px;border-radius:10px;padding:18px}
+.ok{background:var(--okbg);border-left:6px solid var(--ok)}
+.ko{background:var(--kobg);border-left:6px solid var(--ko)}
+.res h2{margin:0 0 10px;font-size:1.1rem}
+.ok h2{color:var(--ok)}.ko h2{color:var(--ko)}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px}
+dt{color:var(--muted)}dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.res .btn{margin-top:16px}
+p.hint{color:var(--muted);margin:0 0 14px}
+footer{color:#9db0d6;font-size:.85rem;margin-top:18px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+<img src="logo.png" alt="Logo B-STAT-ECO">
+<h1>Vérification d'attestation</h1>
+</header>
+<main>
+<p class="hint">Saisissez le numéro inscrit sur l'attestation, ou scannez son QR code.</p>
+<form id="f">
+<input id="id" name="id" placeholder="B-STAT-WWA-2026-0001" autocomplete="off" aria-label="Numéro d'attestation">
+<button type="submit">Vérifier</button>
+</form>
+<div id="out" aria-live="polite"></div>
+</main>
+<footer>B-STAT-ECO · Statistiques et économétrie</footer>
+<script>
+const out=document.getElementById('out'),inp=document.getElementById('id');
+const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function charger(){
+  const t=await (await fetch('registre.csv',{cache:'no-store'})).text();
+  const [h,...l]=t.trim().split(/\r?\n/), k=h.split(';');
+  return l.map(r=>Object.fromEntries(r.split(';').map((v,i)=>[k[i],v.trim()])));
+}
+async function verifier(id){
+  id=id.trim().toUpperCase(); if(!id){out.innerHTML='';return}
+  try{
+    const a=(await charger()).find(r=>r.numero.toUpperCase()===id);
+    out.innerHTML=a?
+      `<div class="res ok"><h2>Attestation authentique</h2><dl><dt>Numéro</dt><dd>${esc(a.numero)}</dd><dt>Titulaire</dt><dd>${esc(a.civilite+' '+a.nom_prenom)}</dd><dt>Formation</dt><dd>${esc(a.formation)}</dd><dt>Date</dt><dd>${esc(a.date)}</dd></dl><a class="btn" href="pdf/${encodeURIComponent(a.numero)}.pdf">Ouvrir l'attestation (PDF)</a></div>`:
+      `<div class="res ko"><h2>Attestation introuvable</h2><p style="margin:0">Aucune attestation ne porte le numéro ${esc(id)}. Vérifiez la saisie ou contactez B-STAT-ECO.</p></div>`;
+  }catch(e){out.innerHTML='<div class="res ko"><h2>Registre indisponible</h2><p style="margin:0">Réessayez dans quelques instants.</p></div>'}
+}
+document.getElementById('f').addEventListener('submit',e=>{e.preventDefault();history.replaceState(null,'','?id='+encodeURIComponent(inp.value.trim()));verifier(inp.value)});
+const q=new URLSearchParams(location.search).get('id'); if(q){inp.value=q;verifier(q)}
+</script>
+</body>
+</html>
